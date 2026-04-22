@@ -1,0 +1,30 @@
+graph TD
+    subgraph 前端 Web (用户交互层)
+        UI[极简 UI 界面]
+        Upload[Excel/CSV 上传模块]
+        Table[数据可视化预览表]
+        AIChat[AI 交互控制台]
+        Export[十六进制 List 导出]
+    end
+
+    subgraph 后端 Server (逻辑处理层)
+        Parser[表格解析引擎]
+        HexCore[十六进制转换核心<br/>IEEE 754 Float 封包]
+        AIAgent[LLM 提示词组装与路由]
+        ScriptGen[控制脚本生成器]
+    end
+
+    subgraph 外部服务层
+        LLM[大语言模型 API<br/>通义千问/智谱/DeepSeek等]
+    end
+
+    Upload -->|上传表格| Parser
+    Parser -->|提取特征数据| HexCore
+    HexCore -->|生成 16进制 Payload| Table
+    Table --> Export
+
+    AIChat -->|用户自然语言需求| AIAgent
+    AIAgent -->|携带上下文| LLM
+    LLM -->|返回代码/配置| ScriptGen
+    ScriptGen -->|渲染脚本| AIChat
+    ScriptGen --> Export
