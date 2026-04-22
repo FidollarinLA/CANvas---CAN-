@@ -38,9 +38,6 @@ npm run build
 5. 运行后可以上传 `.list` 文件进行规则校验，并导出 `CANvas-校验结果.xlsx`。
 5. 运行后可以上传 Excel，生成 `.list` 报文，并导出 `CANvas-比赛展示.xlsx`。
 
-## 数据格式建议
-
-上传表头建议包含：
 
 一、 产品方案：CANvas - 智能 CAN 通信载荷转换与协同工作台
 
