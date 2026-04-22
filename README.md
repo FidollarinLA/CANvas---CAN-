@@ -1,4 +1,4 @@
-# CANvas
+<img width="1800" height="1180" alt="Product Instruction-architecture" src="https://github.com/user-attachments/assets/9bce9067-491f-4517-b08c-aede60e297b0" /># CANvas
 
 CANvas 是一个面向 CAN 调试场景的 Web 工作台 MVP，支持：
 
@@ -37,6 +37,10 @@ npm run build
 
 5. 运行后可以上传 `.list` 文件进行规则校验，并导出 `CANvas-校验结果.xlsx`。
 5. 运行后可以上传 Excel，生成 `.list` 报文，并导出 `CANvas-比赛展示.xlsx`。
+
+
+<img width="1800" height="1180" alt="Product Instruction-architecture" src="https://github.com/user-attachments/assets/2abd9de8-43c5-4ca2-ab7a-a1a84abae7c5" />
+
 
 
 一、 产品方案：CANvas - 智能 CAN 通信载荷转换与协同工作台
