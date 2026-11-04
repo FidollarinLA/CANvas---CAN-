@@ -1,0 +1,8 @@
+# CCS / local build debris (keep checked-in CPU1_FLASH artifacts for flash/repro)
+Debug/
+Release/
+.launches/
+*.bak
+*.tmp
+*~
+.DS_Store

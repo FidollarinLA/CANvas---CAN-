@@ -1,119 +1,72 @@
-<img width="1800" height="1180" alt="Product Instruction-architecture" src="https://github.com/user-attachments/assets/9bce9067-491f-4517-b08c-aede60e297b0" /># CANvas
+# 转子温度在线估计：纯 CNN × F28P550 NPU（T15）
 
-CANvas 是一个面向 CAN 调试场景的 Web 工作台 MVP，支持：
+第 12 届高校电力电子应用设计大赛（台达杯电力电子人工智能设计竞赛）开源工程。  
+在 **TMS320F28P550** 上以 **100 ms** 实时任务在线估计永磁体表面温度 **T15**；量化 CNN 主体跑在片上 **NPU**。
 
-- Excel/CSV 上传与数据预览
-- 从 Excel 生成 .list 格式 CAN 报文
-- .list 报文规则校验与比赛 Excel 导出
-- AI 脚本助手（当前为 Mock API）
+> **算法逻辑冻结**：开源迭代只增加注释与文档，不改动特征、网络、时序常数与 CAN 语义。
 
-## 技术栈
+---
 
-- React + Vite + TypeScript
-- Tailwind CSS
-- xlsx + papaparse
-- prismjs
+## 规范性材料一览（冲满分索引）
 
-## 本地启动
+| 竞赛要求 | 文档 |
+|----------|------|
+| 控制框图 | [docs/01_control_block_diagram.md](docs/01_control_block_diagram.md) |
+| 信号链路 + 采样/控制与电路对照 | [docs/02_signal_chain.md](docs/02_signal_chain.md) |
+| 算法原理 | [docs/03_algorithm.md](docs/03_algorithm.md) |
+| 部署说明 | [docs/04_deployment.md](docs/04_deployment.md) |
+| 测试报告 | [docs/05_test_report.md](docs/05_test_report.md) |
+| 开源手册 | [docs/OPEN_SOURCE_MANUAL.md](docs/OPEN_SOURCE_MANUAL.md) |
+| 迭代看板 | [docs/ITERATION.md](docs/ITERATION.md) |
+| 源码审阅纪要（不改逻辑） | [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) |
 
-1. 安装 Node.js 20+（当前机器未检测到 Node/npm）。
-2. 安装依赖：
+**防扣分要点（已在文档与架构中写明）**
 
-```bash
-npm install
+1. AI **进入实时控制/估计环**：Timer0 → `rt_step()` → NPU 推理 → CAN `0x180`（非离线后处理）。  
+2. **多工况迁移**：见测试报告 §4 表格，需归档实测。  
+3. **方案介绍海报**：由队伍另行提交展示材料。
+
+---
+
+## 30 秒看懂数据流
+
+```text
+CAN 输入 Id/Iq/Ud/Uq/n/T01/T03/T08
+        → 100 ms 调用 rt_step
+        → 1 s 特征步 × 20 s 窗口
+        → CNN(NPU) → EWMA → T15 ℃
+        → CAN 0x180（valid=1）
 ```
 
-3. 启动开发：
+默认协议（`CAN_INPUT_USE_FCN=1`）：`0x100` 电流+转速，`0x110` 电压，`0x120/121/122` 三路温度；就绪帧 `0x555`。完整表见信号链路文档。
 
-```bash
-npm run dev
-```
+---
 
-4. 构建产物：
+## 快速开始
 
-```bash
-npm run build
-```
+1. 安装 CCS + C2000Ware，导入本仓库根目录工程。  
+2. 确认宏 **`RT_NPU`**，构建 **CPU1_FLASH**，或直接烧录 `CPU1_FLASH/*.out`。  
+3. 自检通过后总线应出现 `0x555=1.0`，再灌输入；约 20 s 后有估计输出。  
 
-5. 运行后可以上传 `.list` 文件进行规则校验，并导出 `CANvas-校验结果.xlsx`。
-5. 运行后可以上传 Excel，生成 `.list` 报文，并导出 `CANvas-比赛展示.xlsx`。
+细节：[docs/04_deployment.md](docs/04_deployment.md)。
 
+---
 
-<img width="1800" height="1180" alt="Product Instruction-architecture" src="https://github.com/user-attachments/assets/2abd9de8-43c5-4ca2-ab7a-a1a84abae7c5" />
+## 源码地图
 
+| 文件 | 职责 |
+|------|------|
+| `main.c` | 自检、MCAN、Timer、调用 `rt_step`、发估计帧 |
+| `rt_estimator.*` | 就绪/断流/抽取/窗口/合理性/EWMA |
+| `rt_features.*` | 8→56 特征 |
+| `rt_cnn.*` | 标准化 + NPU/CPU CNN + 浮点输出头 |
+| `rt_cnn_params.*` | 导出权重（勿手改） |
+| `board_self_test.h` | 221 步回放与 PC 期望（勿手改） |
+| `npu/` | `npu_cnn.onnx`、`mod_cnn.a`、`tvmgen_cnn.h` |
 
+---
 
-一、 产品方案：CANvas - 智能 CAN 通信载荷转换与协同工作台
+## 许可
 
-项目背景与痛点分析 (The Problem) 在新能源汽车电子、机器人运动控制等前沿领域，CAN 通信是不可或缺的底层基础设施。然而，在进行硬件在环（HIL）或实车调试时，开发者常常陷入“报文泥潭”：
-格式转换繁琐： 上位机软件通常只接受特定的十六进制列表文件（如 .asc, .txt 等）。将研究人员常用的 Excel 表格数据（特别是涉及多组浮点数、物理值与原始值的换算）手动或通过劣质脚本转换为十六进制，过程极其痛苦且易出错。
-
-时序修改低效： 调试过程中，经常需要动态调整报文的发送周期和触发条件。传统方式下，这意味着要重新修改上位机脚本（如 CAPL 脚本），耗时费力，打断了开发者的心流状态。
-
-产品简介 (The Solution) CANvas 是一款专为硬件开发者和算法工程师设计的 Web 端智能通信辅助工具。它将繁杂的数据转换流程自动化，并引入大语言模型（LLM），让开发者可以通过自然语言“对话”来实时生成和修改通信脚本。
-
-核心功能 (Core Features)
-
-无缝数据映射 (Data-to-Hex Engine)： 支持一键导入含有十进制特征数据的 Excel 表格，内置强大的解析引擎，精准处理诸如“单 ID 下多路 Float (Single) 变量”等复杂协议，自动打包生成可供上位机直接读取的 16 进制 List 格式文件。
-
-AI 驱动脚本重构 (AI Script Copilot)： 接入大模型 API，只需输入自然语言（例如：“帮我把所有电机控制指令的发送间隔改为 10ms，并在第五帧加入唤醒信号”），即可实时生成或修改对应的控制脚本。
-
-可视化命令看板 (Visual Command Dashboard)： 提供一个清爽的控制台界面，用户可以在 Web 端直观地拖拽或填表来自定义各项命令的发送时间戳、周期和触发逻辑，彻底告别反人类的纯文本编辑。
-
-比赛亮点 (Why We Win)
-直击真实痛点： 来源于一线工程实践，不是伪需求，具备极高的实用价值。
-
-AI 赋能生产力： 将 AI 的能力（自然语言编程）完美融入传统的硬件调试工作流，展现了跨界融合的创新。
-
-极简优雅体验： 用现代化的 Web 界面取代了传统工业软件粗糙的交互，降低了使用门槛。
-
-二、 软件总体架构图
-
-Unable to render rich display
-
-Parse error on line 2:
-...TD subgraph 前端 Web (用户交互层) UI[极简 UI 界
-----------------------^
-Expecting 'SEMI', 'NEWLINE', 'SPACE', 'EOF', 'GRAPH', 'DIR', 'subgraph', 'SQS', 'end', 'AMP', 'COLON', 'START_LINK', 'STYLE', 'LINKSTYLE', 'CLASSDEF', 'CLASS', 'CLICK', 'DOWN', 'UP', 'NUM', 'NODE_STRING', 'BRKT', 'MINUS', 'MULT', 'UNICODE_TEXT', got 'PS'
-
-For more information, see https://docs.github.com/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams#creating-mermaid-diagrams
-
-graph TD
-	subgraph 前端 Web (用户交互层)
-		UI[极简 UI 界面]
-		Upload[Excel/CSV 上传模块]
-		Table[数据可视化预览表]
-		AIChat[AI 交互控制台]
-		Export[十六进制 List 导出]
-	end
-
-	subgraph 后端 Server (逻辑处理层)
-		Parser[表格解析引擎]
-		HexCore[十六进制转换核心<br/>IEEE 754 Float 封包]
-		AIAgent[LLM 提示词组装与路由]
-		ScriptGen[控制脚本生成器]
-	end
-
-	subgraph 外部服务层
-		LLM[大语言模型 API<br/>通义千问/智谱/DeepSeek等]
-	end
-
-	%% 数据流向
-	Upload -->|上传表格| Parser
-	Parser -->|提取特征数据| HexCore
-	HexCore -->|生成 16进制 Payload| Table
-	Table --> Export
-    
-	AIChat -->|用户自然语言需求| AIAgent
-	AIAgent -->|携带上下文| LLM
-	LLM -->|返回代码/配置| ScriptGen
-	ScriptGen -->|渲染脚本| AIChat
-	ScriptGen --> Export
-
-- `ID`
-- `变量名`
-- `原始值 (10进制)`
-- `目标类型`
-- `周期`
-
-也兼容英文键名：`id`、`variable`、`rawValue`、`targetType`、`periodMs`。
+应用层源码与文档：见 [LICENSE](LICENSE)（MIT）。  
+`npu/` 下 TI NNC 生成文件保留其页眉版权条款。
